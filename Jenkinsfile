@@ -23,21 +23,24 @@ pipeline {
         // La sintaxis ha sido simplificada para eliminar el conflicto de compilación Groovy.
         // -------------------------------------------------------------------------
         stage('SonarQube Analysis (SAST)') {
-            steps {
-                echo "Iniciando Análisis Estático (SAST) para validar correcciones de código."
-                
-                // *** SOLUCIÓN DEFINITIVA DE COMPILACIÓN ***
-                // Utilizamos el bloque 'withSonarQubeEnv' que inyecta las variables necesarias.
-                // El comando 'sonar-scanner' se llama directamente (asumiendo que está en el PATH de Jenkins).
-                withSonarQubeEnv("${SONAR_SERVER}") {
-                    sh "sonar-scanner \
-                    -Dsonar.projectKey=AuditoriaCiberseguridad \
-                    -Dsonar.sources=. \
-                    -Dsonar.python.version=3 \
-                    -Dsonar.sourceEncoding=UTF-8"
-                }
+    steps {
+        echo "Iniciando Análisis Estático (SAST) para validar correcciones de código."
+        script {
+            // *** CORRECCIÓN: Usamos 'tool name' para obtener la RUTA del ejecutable ***
+            // La variable scannerHome ahora contiene la ruta completa, ej: /var/jenkins_home/tools/SonarQubeScanner/.../
+            def scannerHome = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+
+            withSonarQubeEnv("${SONAR_SERVER}") {
+                // Invocamos el ejecutable usando la RUTA COMPLETA obtenida del comando tool
+                sh "${scannerHome}/bin/sonar-scanner \
+                -Dsonar.projectKey=AuditoriaCiberseguridad \
+                -Dsonar.sources=. \
+                -Dsonar.python.version=3 \
+                -Dsonar.sourceEncoding=UTF-8"
             }
         }
+    }
+}
 
         // -------------------------------------------------------------------------
         // ETAPA 3: ANÁLISIS DINÁMICO (DAST) - OWASP ZAP (Requisito del Profesor)
