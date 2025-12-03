@@ -61,7 +61,11 @@ pipeline {
                     publishHTML([
                         reportDir: '.',
                         reportFiles: 'zap_report.html',
-                        reportName: 'OWASP ZAP Security Report'
+                        reportName: 'OWASP ZAP Security Report',
+                        // <<< Parámetros REQUERIDOS Añadidos >>>
+                        keepAll: true,
+                        alwaysLinkToLastBuild: true,
+                        allowMissing: true
                     ])
                 }
             }
@@ -87,7 +91,11 @@ pipeline {
                     publishHTML([
                         reportDir: '.',
                         reportFiles: 'dependency-check-report/dependency-check-report.html',
-                        reportName: 'Dependency Check Report'
+                        reportName: 'Dependency Check Report',
+                        // <<< Parámetros REQUERIDOS Añadidos >>>
+                        keepAll: true,
+                        alwaysLinkToLastBuild: true,
+                        allowMissing: true
                     ])
                 }
             }
