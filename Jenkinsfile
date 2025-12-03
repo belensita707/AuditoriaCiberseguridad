@@ -49,23 +49,23 @@ pipeline {
             }
         }
 
-        stage('Análisis Estático (SAST) - SonarQube') {
+        stage('SonarQube Analysis (SAST)') {
             steps {
-                script {
-                    echo '--- 3. Ejecutando análisis de código con SonarQube ---'
-                    // El token se maneja automáticamente si configuraste el "Server authentication token" en Jenkins
-                    withSonarQubeEnv(SONAR_SERVER) {
-                        sh """
-                            ${tool 'SonarScanner'}/bin/sonar-scanner \
-                            -Dsonar.projectKey=EvaluacionParcial3 \
-                            -Dsonar.sources=. \
-                            -Dsonar.python.version=3 \
-                            -Dsonar.sourceEncoding=UTF-8
-                        """
-                    }
+                echo "Iniciando Análisis Estático (SAST) con SonarQube..."
+                
+                // *** CORRECCIÓN FINAL: Eliminamos el bloque 'script' y confiamos en el plugin ***
+                withSonarQubeEnv("${SONAR_SERVER}") {
+                    // Esta sintaxis es la más estable para el plugin 'SonarQube Scanner' en Jenkins Pipeline.
+                    // Resuelve el error 'Invalid tool type'.
+                    sh "sonar-scanner \
+                    -Dsonar.projectKey=AuditoriaCiberseguridad \
+                    -Dsonar.sources=. \
+                    -Dsonar.python.version=3 \
+                    -Dsonar.sourceEncoding=UTF-8"
                 }
             }
         }
+        
 
         stage('Análisis de Dependencias (SCA) - OWASP Dependency-Check') {
             steps {
