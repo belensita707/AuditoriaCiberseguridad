@@ -1,13 +1,17 @@
 import sqlite3
-import hashlib
+from werkzeug.security import generate_password_hash
+import os
 
-# Conexión a la base de datos (se creará automáticamente si no existe)
-conn = sqlite3.connect('example.db')
+# Eliminar base anterior si existe (opcional pero recomendado)
+if os.path.exists("example.db"):
+    os.remove("example.db")
+    print("Base de datos antigua eliminada.")
 
-# Crear un cursor
+# Crear la conexión
+conn = sqlite3.connect("example.db")
 c = conn.cursor()
 
-# Crear la tabla de usuarios
+# Crear tabla de usuarios
 c.execute('''
     CREATE TABLE users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -17,21 +21,7 @@ c.execute('''
     )
 ''')
 
-# Función para hash de contraseñas
-
-
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
-
-
-# Insertar un usuario de prueba (las contraseñas están en SHA256 de 'password')
-c.execute('''
-    INSERT INTO users (username, password, role) VALUES
-    ('admin', ?, 'admin'),
-    ('user', ?, 'user')
-''', (hash_password('password'), hash_password('password')))
-
-# Crear la tabla de comentarios
+# Crear tabla de comentarios
 c.execute('''
     CREATE TABLE comments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,8 +31,25 @@ c.execute('''
     )
 ''')
 
-# Guardar los cambios y cerrar la conexión
+# Insertar usuarios con contraseña segura (hash + salt)
+admin_pass = generate_password_hash("password123")
+user_pass  = generate_password_hash("usuario123")
+
+c.execute(
+    "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+    ("admin", admin_pass, "admin")
+)
+
+c.execute(
+    "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+    ("user", user_pass, "user")
+)
+
+# Guardar cambios
 conn.commit()
 conn.close()
 
-print("Base de datos y tablas creadas con éxito.")
+print("Base de datos creada con éxito.")
+print("Usuarios disponibles:")
+print(" - admin / password123")
+print(" - user / usuario123")
