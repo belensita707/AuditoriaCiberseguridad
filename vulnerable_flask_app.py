@@ -2,12 +2,17 @@ from flask import Flask, request, render_template_string, session, redirect, url
 import sqlite3
 import os
 import hashlib
+from flask_wtf.csrf import CSRFProtect
+from werkzeug.security import generate_password_hash, check_password_hash
+
+
 
 # Nota: Este código solo contiene la corrección de Inyección SQL.
 # Otras vulnerabilidades (XSS, Hashing débil, Debug activo, etc.) siguen presentes.
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+csrf = CSRFProtect(app)
 
 
 def get_db_connection():
@@ -19,7 +24,8 @@ def get_db_connection():
 
 def hash_password(password):
     # VULNERABILIDAD: Hashing débil (SHA256 sin salt) - Mantenido para el ejemplo.
-    return hashlib.sha256(password.encode()).hexdigest()
+    return generate_password_hash(password)
+
 
 
 @app.route('/')
@@ -51,45 +57,48 @@ def login():
 
         conn = get_db_connection()
 
-        
-        query = "SELECT * FROM users WHERE username = ? AND password = ?"
-        hashed_password = hash_password(password)
-        
-        user = conn.execute(query, (username, hashed_password)).fetchone()
+        # Buscar usuario por username
+        query = "SELECT * FROM users WHERE username = ?"
+        user = conn.execute(query, (username,)).fetchone()
 
-        if user:
+        # Validar contraseña con hashing seguro
+        if user and check_password_hash(user['password'], password):
             session['user_id'] = user['id']
             session['role'] = user['role']
             return redirect(url_for('dashboard'))
-        else:
-            return render_template_string('''
-                <!doctype html>
-                <html lang="en">
-                <head>
-                    <meta charset="utf-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-                    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet">
-                    <title>Login</title>
-                </head>
-                <body>
-                    <div class="container">
-                        <h1 class="mt-5">Login</h1>
-                        <div class="alert alert-danger" role="alert">Invalid credentials!</div>
-                        <form method="post">
-                            <div class="form-group">
-                                <label for="username">Username</label>
-                                <input type="text" class="form-control" id="username" name="username">
-                            </div>
-                            <div class="form-group">
-                                <label for="password">Password</label>
-                                <input type="password" class="form-control" id="password" name="password">
-                            </div>
-                            <button type="submit" class="btn btn-primary">Login</button>
-                        </form>
-                    </div>
-                </body>
-                </html>
-            ''')
+
+        # Si falla login → mostrar error
+        return render_template_string('''
+            <!doctype html>
+            <html lang="en">
+            <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+                <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet">
+                <title>Login</title>
+            </head>
+            <body>
+                <div class="container">
+                    <h1 class="mt-5">Login</h1>
+                    <div class="alert alert-danger" role="alert">Invalid credentials!</div>
+                    <form method="post">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="form-group">
+                            <label for="username">Username</label>
+                            <input type="text" class="form-control" id="username" name="username">
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input type="password" class="form-control" id="password" name="password">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Login</button>
+                    </form>
+                </div>
+            </body>
+            </html>
+        ''')
+
+    # Formulario GET sin error
     return render_template_string('''
         <!doctype html>
         <html lang="en">
@@ -103,6 +112,8 @@ def login():
             <div class="container">
                 <h1 class="mt-5">Login</h1>
                 <form method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
                     <div class="form-group">
                         <label for="username">Username</label>
                         <input type="text" class="form-control" id="username" name="username">
@@ -117,6 +128,7 @@ def login():
         </body>
         </html>
     ''')
+
 
 
 @app.route('/dashboard')
@@ -143,6 +155,8 @@ def dashboard():
             <div class="container">
                 <h1 class="mt-5">Welcome, user {{ user_id }}!</h1>
                 <form action="/submit_comment" method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
                     <div class="form-group">
                         <label for="comment">Comment</label>
                         <textarea class="form-control" id="comment" name="comment" rows="3"></textarea>
@@ -152,7 +166,7 @@ def dashboard():
                 <h2 class="mt-5">Your Comments</h2>
                 <ul class="list-group">
                     {% for comment in comments %}
-                        <li class="list-group-item">{{ comment['comment'] }}</li> 
+                        <li class="list-group-item">{{ comment['comment'] | e }}</li>
                     {% endfor %}
                 </ul>
             </div>
@@ -168,6 +182,8 @@ def submit_comment():
 
     comment = request.form['comment']
     user_id = session['user_id']
+    import html
+    comment = html.escape(comment)
 
     conn = get_db_connection()
     conn.execute(
@@ -176,6 +192,7 @@ def submit_comment():
     conn.close()
 
     return redirect(url_for('dashboard'))
+
 
 
 @app.route('/admin')
@@ -201,6 +218,5 @@ def admin():
         </html>
     ''')
 
-
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)
